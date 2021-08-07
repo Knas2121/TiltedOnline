@@ -1,4 +1,4 @@
-set_xmakever("2.5.1")
+set_xmakever("2.5.5")
 
 -- c code will use c99,
 -- cxx code will use cxx17 currently, cxx20 soon
@@ -13,7 +13,7 @@ add_vectorexts("sse", "sse2", "sse3", "ssse3")
 add_rules("mode.debug", "mode.releasedbg", "mode.release")
 add_rules("plugin.vsxmake.autoupdate")
 
-add_requires("entt")
+add_requires("entt", "recastnavigation")
 
 if is_mode("debug") then
     add_defines("DEBUG")

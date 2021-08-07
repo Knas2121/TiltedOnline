@@ -6,9 +6,11 @@
 #include <Games/ExtraData.h>
 #include <ExtraData/ExtraContainerChanges.h>
 #include <Games/Animation/IAnimationGraphManagerHolder.h>
+#include <Games/Misc/Lock.h>
 
 struct AnimationVariables;
 struct TESWorldSpace;
+struct TESBoundObject;
 
 struct TESObjectREFR : TESForm
 {
@@ -138,6 +140,7 @@ struct TESObjectREFR : TESForm
     TESWorldSpace* GetWorldSpace() const noexcept;
     ExtraContainerChanges::Data* GetContainerChanges() const noexcept;
     BSExtraDataList* GetExtraDataList() noexcept;
+    Lock* GetLock() noexcept;
 
     void SaveInventory(BGSSaveFormBuffer* apBuffer) const noexcept;
     void SaveAnimationVariables(AnimationVariables& aWriter) const noexcept;
@@ -153,6 +156,11 @@ struct TESObjectREFR : TESForm
     void Enable() const noexcept;
     void MoveTo(TESObjectCELL* apCell, const NiPoint3& acPosition) const noexcept;
 
+    void Activate(TESObjectREFR* apActivator, uint8_t aUnk1, TESBoundObject* apObjectToGet, int32_t aCount, char aDefaultProcessing) noexcept;
+
+    Lock* CreateLock() noexcept;
+    void LockChange() noexcept;
+
     BSHandleRefObject handleRefObject;
     uintptr_t unk1C;
     IAnimationGraphManagerHolder animationGraphHolder;
@@ -166,6 +174,7 @@ struct TESObjectREFR : TESForm
     uint16_t scale;
     uint16_t referenceFlags;
 };
+constexpr size_t t = offsetof(TESObjectREFR, extraData);
 
 POINTER_SKYRIMSE(uint32_t, s_nullHandle, 0x141EBEABC - 0x140000000);
 

@@ -6,7 +6,9 @@
 
 struct NotifySpawnData final : ServerMessage
 {
-    NotifySpawnData() : ServerMessage(kNotifySpawnData)
+    static constexpr ServerOpcode Opcode = kNotifySpawnData;
+
+    NotifySpawnData() : ServerMessage(Opcode)
     {
     }
 
@@ -18,10 +20,12 @@ struct NotifySpawnData final : ServerMessage
         return Id == acRhs.Id &&
                InitialActorValues == acRhs.InitialActorValues && 
                InitialInventory == acRhs.InitialInventory &&
+               IsDead == acRhs.IsDead &&
                GetOpcode() == acRhs.GetOpcode();
     }
 
     uint32_t Id;
     ActorValues InitialActorValues{};
     Inventory InitialInventory{};
+    bool IsDead{};
 };

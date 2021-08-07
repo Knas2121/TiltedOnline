@@ -5,11 +5,13 @@
 #include <Games/Animation/IAnimationGraphManagerHolder.h>
 #include <Forms/ActorValueInfo.h>
 #include <Misc/ActorValueOwner.h>
+#include <Games/Misc/Lock.h>
 
 struct NiNode;
 struct BSFaceGenNiNode;
 struct TESObjectCELL;
 struct AnimationVariables;
+struct TESBoundObject;
 
 struct TESObjectREFR : TESForm
 {
@@ -146,6 +148,7 @@ struct TESObjectREFR : TESForm
     struct TESWorldSpace* GetWorldSpace() const noexcept;
     BSExtraDataList* GetExtraDataList() noexcept;
     ActorValueInfo* GetActorValueInfo(uint32_t aId) noexcept;
+    Lock* GetLock() noexcept;
 
     void SaveAnimationVariables(AnimationVariables& aWriter) const noexcept;
     void SaveInventory(BGSSaveFormBuffer* apBuffer) const noexcept;
@@ -160,6 +163,11 @@ struct TESObjectREFR : TESForm
     void Disable() const noexcept;
     void Enable() const noexcept;
     void MoveTo(TESObjectCELL* apCell, const NiPoint3& acPosition) const noexcept;
+
+    void Activate(TESObjectREFR* apActivator, TESBoundObject* apObjectToGet, int32_t aCount, bool aDefaultProcessing, bool aFromScript, bool aIsLooping) noexcept;
+
+    Lock* CreateLock() noexcept;
+    void LockChange() noexcept;
 
 public:
 

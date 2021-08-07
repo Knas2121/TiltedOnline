@@ -22,7 +22,6 @@ using TiltedPhoques::OverlayApp;
 
 struct OverlayService
 {
-  public:
     OverlayService(World& aWorld, TransportService& transport, entt::dispatcher& aDispatcher);
     ~OverlayService() noexcept;
 
@@ -57,7 +56,7 @@ struct OverlayService
 
   private:
     CefRefPtr<OverlayApp> m_pOverlay{nullptr};
-    TiltedPhoques::UniquePtr<D3D11RenderProvider> m_pProvider;
+    UniquePtr<D3D11RenderProvider> m_pProvider;
 
     World& m_world;
     TransportService& m_transport;

@@ -1,8 +1,10 @@
+
 #include <Services/TransportService.h>
 
 #include <Events/UpdateEvent.h>
 #include <Events/ConnectedEvent.h>
 #include <Events/DisconnectedEvent.h>
+#include <Events/GridCellChangeEvent.h>
 #include <Events/CellChangeEvent.h>
 
 #include <Games/TES.h>
@@ -14,42 +16,16 @@
 
 #include <Packet.hpp>
 #include <Messages/AuthenticationRequest.h>
-#include <TiltedCore/ScratchAllocator.hpp>
+#include <Messages/ServerMessageFactory.h>
+#include <Messages/ShiftGridCellRequest.h>
+#include <Messages/EnterExteriorCellRequest.h>
+#include <Messages/EnterInteriorCellRequest.h>
 
 #include <Services/ImguiService.h>
 #include <Services/DiscordService.h>
 
 #include <imgui.h>
 //#include <imgui_internal.h>
-
-#include <Messages/AuthenticationResponse.h>
-#include <Messages/ServerMessageFactory.h>
-#include <Messages/AssignCharacterResponse.h>
-#include <Messages/ServerReferencesMoveRequest.h>
-#include <Messages/EnterCellRequest.h>
-#include <Messages/CharacterSpawnRequest.h>
-#include <Messages/NotifyInventoryChanges.h>
-#include <Messages/NotifyFactionsChanges.h>
-#include <Messages/ServerTimeSettings.h>
-#include <Messages/NotifyRemoveCharacter.h>
-#include <Messages/NotifyQuestUpdate.h>
-#include <Messages/NotifyPlayerList.h>
-#include <Messages/NotifyPartyInfo.h>
-#include <Messages/NotifyPartyInvite.h>
-#include <Messages/NotifyCharacterTravel.h>
-#include <Messages/NotifyActorValueChanges.h>
-#include <Messages/NotifyActorMaxValueChanges.h>
-#include <Messages/NotifyHealthChangeBroadcast.h>
-#include <Messages/NotifySpawnData.h>
-#include <Messages/NotifyChatMessageBroadcast.h>
-
-#define TRANSPORT_DISPATCH(packetName) \
-case k##packetName: \
-    { \
-    const auto pRealMessage = TiltedPhoques::CastUnique<packetName>(std::move(pMessage)); \
-    m_dispatcher.trigger(*pRealMessage); \
-    } \
-    break; 
 
 using TiltedPhoques::Packet;
 
@@ -58,10 +34,30 @@ TransportService::TransportService(World& aWorld, entt::dispatcher& aDispatcher,
     , m_dispatcher(aDispatcher)
 {
     m_updateConnection = m_dispatcher.sink<UpdateEvent>().connect<&TransportService::HandleUpdate>(this);
+    m_gridCellChangeConnection = m_dispatcher.sink<GridCellChangeEvent>().connect<&TransportService::OnGridCellChangeEvent>(this);
     m_cellChangeConnection = m_dispatcher.sink<CellChangeEvent>().connect<&TransportService::OnCellChangeEvent>(this);
     m_drawImGuiConnection = aImguiService.OnDraw.connect<&TransportService::OnDraw>(this);
 
     m_connected = false;
+
+    auto handlerGenerator = [this](auto& x) {
+        using T = typename std::remove_reference_t<decltype(x)>::Type;
+
+        m_messageHandlers[T::Opcode] = [this](UniquePtr<ServerMessage>& apMessage) {
+            const auto pRealMessage = TiltedPhoques::CastUnique<T>(std::move(apMessage));
+            m_dispatcher.trigger(*pRealMessage);
+        };
+
+        return false;
+    };
+
+    ServerMessageFactory::Visit(handlerGenerator);
+
+    // Override authentication response
+    m_messageHandlers[AuthenticationResponse::Opcode] = [this](UniquePtr<ServerMessage>& apMessage) {
+        const auto pRealMessage = TiltedPhoques::CastUnique<AuthenticationResponse>(std::move(apMessage));
+        HandleAuthenticationResponse(*pRealMessage);
+    };
 }
 
 bool TransportService::Send(const ClientMessage& acMessage) const noexcept
@@ -105,37 +101,7 @@ void TransportService::OnConsume(const void* apData, uint32_t aSize)
         return;
     }
 
-    switch (pMessage->GetOpcode())
-    {
-    case kAuthenticationResponse:
-    {
-        const auto pRealMessage = TiltedPhoques::CastUnique<AuthenticationResponse>(std::move(pMessage));
-        HandleAuthenticationResponse(*pRealMessage);
-    }
-    break;
-
-    TRANSPORT_DISPATCH(AssignCharacterResponse);
-    TRANSPORT_DISPATCH(ServerReferencesMoveRequest);
-    TRANSPORT_DISPATCH(ServerTimeSettings);
-    TRANSPORT_DISPATCH(CharacterSpawnRequest);
-    TRANSPORT_DISPATCH(NotifyInventoryChanges);
-    TRANSPORT_DISPATCH(NotifyFactionsChanges);
-    TRANSPORT_DISPATCH(NotifyRemoveCharacter);
-    TRANSPORT_DISPATCH(NotifyQuestUpdate);
-    TRANSPORT_DISPATCH(NotifyPlayerList);
-    TRANSPORT_DISPATCH(NotifyPartyInfo);
-    TRANSPORT_DISPATCH(NotifyPartyInvite);
-    TRANSPORT_DISPATCH(NotifyCharacterTravel);
-    TRANSPORT_DISPATCH(NotifyActorValueChanges);
-    TRANSPORT_DISPATCH(NotifyActorMaxValueChanges);
-    TRANSPORT_DISPATCH(NotifyHealthChangeBroadcast);
-    TRANSPORT_DISPATCH(NotifySpawnData);
-    TRANSPORT_DISPATCH(NotifyChatMessageBroadcast);
-
-    default:
-        spdlog::error("Client message opcode {} from server has no handler", pMessage->GetOpcode());
-        break;
-    }
+    m_messageHandlers[pMessage->GetOpcode()](pMessage);
 }
 
 void TransportService::OnConnected()
@@ -155,9 +121,9 @@ void TransportService::OnConnected()
         request.Username = "Some dragon boi";
     }
 
-    const auto cpModManager = ModManager::Get();
+    auto* const cpModManager = ModManager::Get();
 
-    for (auto pMod : cpModManager->mods)
+    for (auto* pMod : cpModManager->mods)
     {
         if (!pMod->IsLoaded())
             continue;
@@ -190,15 +156,39 @@ void TransportService::HandleUpdate(const UpdateEvent& acEvent) noexcept
     Update();
 }
 
-void TransportService::OnCellChangeEvent(const CellChangeEvent& acEvent) const noexcept
+void TransportService::OnGridCellChangeEvent(const GridCellChangeEvent& acEvent) const noexcept
 {
     uint32_t baseId = 0;
     uint32_t modId = 0;
 
-    if(m_world.GetModSystem().GetServerModId(acEvent.CellId, modId, baseId))
+    if (m_world.GetModSystem().GetServerModId(acEvent.WorldSpaceId, modId, baseId))
     {
-        EnterCellRequest message;
-        message.CellId = GameId(modId, baseId);
+        ShiftGridCellRequest request;
+        request.WorldSpaceId = GameId(modId, baseId);
+        request.PlayerCell = acEvent.PlayerCell;
+        request.CenterCoords = acEvent.CenterCoords;
+        request.PlayerCoords = acEvent.PlayerCoords;
+        request.Cells = acEvent.Cells;
+
+        Send(request);
+    }
+}
+
+void TransportService::OnCellChangeEvent(const CellChangeEvent& acEvent) const noexcept
+{
+    if (acEvent.WorldSpaceId != GameId{})
+    {
+        EnterExteriorCellRequest message;
+        message.CellId = acEvent.CellId;
+        message.WorldSpaceId = acEvent.WorldSpaceId;
+        message.CurrentCoords = acEvent.CurrentCoords;
+
+        Send(message);
+    }
+    else
+    {
+        EnterInteriorCellRequest message;
+        message.CellId = acEvent.CellId;
 
         Send(message);
     }

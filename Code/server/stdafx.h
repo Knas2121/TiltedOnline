@@ -33,7 +33,10 @@
 #include <spdlog/spdlog.h>
 #include <entt/entt.hpp>
 #include <glm/glm.hpp>
-#include <common/BuildInfo.h>
+#include <BuildInfo.h>
+
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
 
 extern "C"
 {

@@ -14,8 +14,10 @@ using TiltedPhoques::String;
 
 struct CharacterSpawnRequest final : ServerMessage
 {
+    static constexpr ServerOpcode Opcode = kCharacterSpawnRequest;
+
     CharacterSpawnRequest()
-        : ServerMessage(kCharacterSpawnRequest)
+        : ServerMessage(Opcode)
     {
     }
 
@@ -28,6 +30,7 @@ struct CharacterSpawnRequest final : ServerMessage
             ServerId == acRhs.ServerId &&
             FormId == acRhs.FormId &&
             BaseId == acRhs.BaseId &&
+            CellId == acRhs.CellId &&
             Position == acRhs.Position &&
             Rotation == acRhs.Rotation &&
             ChangeFlags == acRhs.ChangeFlags &&
@@ -35,12 +38,14 @@ struct CharacterSpawnRequest final : ServerMessage
             InventoryContent == acRhs.InventoryContent &&
             FactionsContent == acRhs.FactionsContent &&
             FaceTints == acRhs.FaceTints &&
+            IsDead == acRhs.IsDead &&
             GetOpcode() == acRhs.GetOpcode();
     }
 
     uint32_t ServerId{};
     GameId FormId{};
     GameId BaseId{};
+    GameId CellId{};
     Vector3_NetQuantize Position{};
     Rotator2_NetQuantize Rotation{};
     uint32_t ChangeFlags{};
@@ -50,4 +55,5 @@ struct CharacterSpawnRequest final : ServerMessage
     ActionEvent LatestAction{};
     Tints FaceTints{};
     ActorValues InitialActorValues{};
+    bool IsDead{};
 };

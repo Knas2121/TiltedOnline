@@ -1,10 +1,5 @@
 #include <Structs/AnimationGraphDescriptorManager.h>
 
-AnimationGraphDescriptorManager::AnimationGraphDescriptorManager() noexcept
-{
-    
-}
-
 AnimationGraphDescriptorManager& AnimationGraphDescriptorManager::Get() noexcept
 {
     static AnimationGraphDescriptorManager s_manager;
@@ -20,9 +15,10 @@ const AnimationGraphDescriptor* AnimationGraphDescriptorManager::GetDescriptor(c
     return nullptr;
 }
 
-AnimationGraphDescriptorManager::Builder::Builder(const char* acpName, AnimationGraphDescriptor aAnimationGraphDescriptor) noexcept
+AnimationGraphDescriptorManager::Builder::Builder(AnimationGraphDescriptorManager& aManager, const char* acpName,
+                                                  AnimationGraphDescriptor aAnimationGraphDescriptor) noexcept
 {
-    Get().Register(acpName, std::move(aAnimationGraphDescriptor));
+    aManager.Register(acpName, std::move(aAnimationGraphDescriptor));
 }
 
 void AnimationGraphDescriptorManager::Register(const char* acpName, AnimationGraphDescriptor aAnimationGraphDescriptor) noexcept
